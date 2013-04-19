@@ -1,0 +1,16 @@
+Here is the work that has to be done... Remove '#' when a perticular task has been completed.
+
+-> Please add comments describing the call backs.
+
+#1 Add an ioctl to send the path and the name of the file to be created.
+
+#2 Create a workqueue that is sheduled when a file has been sucessfully created. 
+   This workqueue will fill this file with a default string or the string provided by the user.
+
+#3 Add an IOCTL to get a string to be filled from the user.
+
+#4 Make this module a platform driver which will create a device node (character).
+  (Refer TTY drivers from LDD. It's very simple)
+
+#5 Add attributes which will give information about this file. ex :- created or not created.
+
