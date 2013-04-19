@@ -1,4 +1,4 @@
-	obj-m := zero.o
+	obj-m := gad_driver.o
 
 
 	KERNELDIR ?= /lib/modules/$(shell uname -r)/build
