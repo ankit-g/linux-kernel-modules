@@ -9,7 +9,7 @@
 
 
 /* Big enough to hold our biggest descriptor */
-#define EP0_BUFSIZE     512
+#define EP0_BUFSIZE     256
 
 
 static struct usb_device_descriptor
@@ -90,19 +90,20 @@ static int usbg_setup(struct usb_gadget * gadget, const struct usb_ctrlrequest *
 
 	struct usb_request	*req = _usbg_dev->ep0req;
 
-	printk(KERN_DEBUG"%s\n", __func__);
+	printk(KERN_DEBUG"\n%s\n", __func__);
 	printk(KERN_DEBUG"bRequestType %x bRequest %x wValue %x wIndex %d wLength %d\n"
 		, ctrlreq->bRequestType, ctrlreq->bRequest, w_value, w_index, w_length);
 
 	if(dir) {
-		printk(KERN_DEBUG"req dir = IN");
+		printk(KERN_DEBUG"req dir = IN\n");
 
 		switch (ctrlreq->bRequest) {
 		case USB_REQ_GET_DESCRIPTOR: 
-			printk(KERN_DEBUG"GET_DES\n");
+			printk(KERN_DEBUG"GET_DES \n");
 		  	switch (w_value >> 8) { 
 			case USB_DT_DEVICE:
 				printk(KERN_DEBUG"Get device descriptor\n");
+				device_desc.bMaxPacketSize0 = _usbg_dev->ep0->maxpacket;
 				value = min(w_length, (u16)sizeof(struct usb_device_descriptor));
 				req->length = value;
 				memcpy(req->buf, &device_desc, value);
