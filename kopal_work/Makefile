@@ -1,6 +1,6 @@
 INSTALL_DIR=modules
 ifneq (${KERNELRELEASE},)
-	obj-m := hello_world.o
+	obj-m := kern_create_file.o
 
 
 else
