@@ -1,6 +1,8 @@
-#include<linux/init.h>
-#include<linux/module.h>
-#include<linux/kernel.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
@@ -9,7 +11,7 @@
 
 
 /* Big enough to hold our biggest descriptor */
-#define EP0_BUFSIZE     256
+#define EP0_BUFSIZE     512
 
 
 static struct usb_device_descriptor
@@ -42,13 +44,30 @@ struct usbg_dev {
         struct usb_request      *outreq;        /* Copy of cdev->req */
 };     
 
-static struct usbg_dev *_usbg_dev; 
-
+static struct usbg_dev *_usbg_dev;
+static struct class *usbg_class;
+static struct cdev cdev;
+static dev_t dev;
+static struct device *pdev;
 
 static int usbg_setup(struct usb_gadget * , const struct usb_ctrlrequest * );
 static void usbg_unbind(struct usb_gadget * );
 static void usbg_disconnect(struct usb_gadget * );
 
+ssize_t usbg_read (struct file *, char __user *, size_t, loff_t *);
+
+static struct file_operations fops = {
+	.owner          = THIS_MODULE,
+	.read 		= usbg_read,
+
+};
+
+ssize_t usbg_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
+{
+	printk(KERN_DEBUG"%s\n", __func__);
+	
+	return size;
+}
 
 static struct usb_gadget_driver usbg_driver = {
         .function 	= "usb gadget driver",     
@@ -126,6 +145,7 @@ static int __init usbg_bind(struct usb_gadget *gadget)
 	int rc = 0;
 	struct usb_request *req;
 
+
 	printk(KERN_DEBUG"%s\n", __func__);
 	
 	_usbg_dev = kmalloc(sizeof(struct usbg_dev), GFP_KERNEL);
@@ -134,7 +154,6 @@ static int __init usbg_bind(struct usb_gadget *gadget)
                 printk(KERN_ERR"kmalloc failed\n");
                 goto err_release;
         }
-
         /*
          * usb_ep_autoconfig_reset - reset endpoint autoconfig state1
          */
@@ -168,7 +187,38 @@ err_release:
 
 static int __init gad_init(void)
 {
+	int ret;
+
 	printk(KERN_DEBUG"%s\n", __func__);
+
+	ret=alloc_chrdev_region(&dev,0,1,"usbg_driver");
+	if (ret!=0) {
+		printk(KERN_ALERT "alloc_chrdev failed!!!\n");
+		return ret; 
+	}   
+
+	cdev.owner = THIS_MODULE;
+	cdev_init(&cdev,&fops);
+
+	ret = cdev_add(&cdev,dev,1);
+	if (ret) {
+		printk(KERN_ALERT "cdev_add failed!!!\n");
+		return ret; 
+	}
+
+	
+	usbg_class = class_create(THIS_MODULE, "usbg_device");
+	if (IS_ERR(usbg_class))	{
+		printk(KERN_ERR"unable to create class\n");
+		return PTR_ERR(usbg_class);
+	}
+
+	pdev = device_create(usbg_class, NULL, dev, NULL, "usb_gad_node");
+	if (IS_ERR(pdev)) {
+		 printk(KERN_ERR"unable create device node\n");
+		 return PTR_ERR(pdev);
+	}	
+		
 	return usb_gadget_probe_driver(&usbg_driver, usbg_bind);
 }
 
@@ -176,6 +226,12 @@ static void __exit gad_exit(void)
 {
 	printk(KERN_DEBUG"%s\n", __func__);
 
+	cdev_del(&cdev);
+	device_destroy(usbg_class, dev);
+	unregister_chrdev_region(dev,1);
+
+	class_destroy(usbg_class);
+	usbg_class = NULL;	
 	kfree(_usbg_dev->ep0req->buf);
 	kfree(_usbg_dev);
 	usb_gadget_unregister_driver(&usbg_driver);
