@@ -26,11 +26,6 @@ static int __init add(void)
 {
 	int ret, check;
 	printk(KERN_DEBUG"%s\n", __func__);
-/*	filp=filp_open("/home/kopal/git/linux-kernel-modules/kern_file",O_CREAT,0);
-	if (IS_ERR(filp)) {
-		printk(KERN_ERR"**Error**\n");	
-		return -1;
-	}*/
 	ret=alloc_chrdev_region(&dev,0,1,"ioctl_module");
 	if (ret!=0) {
 		printk(KERN_ALERT "alloc_chrdev failed!!!\n");
@@ -61,11 +56,24 @@ static void __exit remove(void)
 
 static long device_ioctl(struct file *filp,unsigned int cmd,unsigned long arg) 
 {
+	
+	char *path;
 	printk(KERN_DEBUG "##%s\n",__func__);
 	switch(cmd) {
 	case IOCTL_HELLO: 
 		printk("IOCTL HELLO\n");
 		break;
+	case IOCTL_WRITE:
+		printk("IOCTL_WRITE\n");
+		path=(char*)arg;
+		printk("%s\n",path);
+		filp=filp_open(path,O_CREAT | O_RDWR, 0666);
+		if (IS_ERR(filp)) {
+			printk(KERN_ERR"**Error**\n");	
+			return -1;
+		}
+		break;
+		
 	default:
 		printk("Default\n");
 		return 1;
