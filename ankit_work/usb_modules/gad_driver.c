@@ -5,10 +5,10 @@
 #include <linux/cdev.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include "ioctl.h"
 
 
 #include "epautoconf.c"
-
 
 /* Big enough to hold our biggest descriptor */
 #define EP0_BUFSIZE     512
@@ -55,12 +55,42 @@ static void usbg_unbind(struct usb_gadget * );
 static void usbg_disconnect(struct usb_gadget * );
 
 ssize_t usbg_read (struct file *, char __user *, size_t, loff_t *);
+static long usbg_ioctl(struct file *, unsigned int, unsigned long);
 
 static struct file_operations fops = {
 	.owner          = THIS_MODULE,
 	.read 		= usbg_read,
-
+	.unlocked_ioctl	= usbg_ioctl
 };
+
+static long usbg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	int ret = 0;
+
+	switch (cmd) {
+	case USBDSBL:
+		printk(KERN_DEBUG"usb disable received\n");
+		ret = usb_gadget_disconnect(_usbg_dev->gadget);
+		if (ret) {
+			printk(KERN_ERR"not supported\n");
+			goto fail_cond;
+		}
+		break;
+	case USBENBL:
+		printk(KERN_DEBUG"usb enable received\n");
+		ret = usb_gadget_connect(_usbg_dev->gadget);
+		if (ret) {
+			printk(KERN_ERR"not supported\n");
+			goto fail_cond;
+		}
+
+		break;	
+	}
+	
+fail_cond:
+	return ret;
+}	
+
 
 ssize_t usbg_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
