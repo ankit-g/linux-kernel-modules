@@ -5,6 +5,7 @@
 #include<linux/init.h>
 #include<linux/module.h>
 #include<linux/kernel.h>
+#include<linux/device.h>
 #include<linux/fs.h>
 #include<linux/cdev.h>
 #include<asm/uaccess.h>
@@ -12,9 +13,11 @@
 
 unsigned int cmd;
 unsigned long arg;
+static struct class *char_class;
+static struct device *pdev;
 struct cdev *cdev;
 struct file *filp;
-dev_t dev;
+static dev_t dev;
 static long device_ioctl(struct file *, unsigned int, unsigned long);
 
 static struct file_operations fops = {
@@ -42,16 +45,29 @@ static int __init add(void)
 		printk(KERN_ALERT "cdev_add failed!!!\n");
 		return -1;
 	}
+	char_class = class_create(THIS_MODULE, "char_class");
+        if (IS_ERR(char_class)) {
+                printk(KERN_ERR"unable to create class\n");
+                return PTR_ERR(char_class);
+        }
+
+        pdev = device_create(char_class, NULL, dev, NULL, "char_dev_node");
+        if (IS_ERR(pdev)) {
+		printk(KERN_ERR"unable create device node\n");
+	        return PTR_ERR(pdev);
+        }       
 	
 	return 0;
 }
 
 static void __exit remove(void)
 {
-	//filp_close(filp,NULL);
 	printk(KERN_DEBUG"%s\n", __func__);
 	cdev_del(cdev);
+	device_destroy(char_class, dev);
 	unregister_chrdev_region(dev,1);
+	class_destroy(char_class);
+	char_class = NULL; 
 }
 
 static long device_ioctl(struct file *filp,unsigned int cmd,unsigned long arg) 
@@ -66,7 +82,6 @@ static long device_ioctl(struct file *filp,unsigned int cmd,unsigned long arg)
 	case IOCTL_WRITE:
 		printk("IOCTL_WRITE\n");
 		path=(char*)arg;
-		printk("%s\n",path);
 		filp=filp_open(path,O_CREAT | O_RDWR, 0666);
 		if (IS_ERR(filp)) {
 			printk(KERN_ERR"**Error**\n");	
