@@ -16,18 +16,31 @@
 
 static struct usb_device_descriptor
 device_desc = {
-        .bLength =              sizeof device_desc,
-        .bDescriptorType =      USB_DT_DEVICE,
+        .bLength 		= sizeof device_desc,
+        .bDescriptorType	= USB_DT_DEVICE,
 
-        .bcdUSB =               cpu_to_le16(0x0200),
-        .bDeviceClass =         USB_CLASS_VENDOR_SPEC,
+        .bcdUSB 		= cpu_to_le16(0x0200),
+        .bDeviceClass 		= USB_CLASS_VENDOR_SPEC,
 
         /* The next three values can be overridden by module parameters */
-        .idVendor =             cpu_to_le16(0xabcd),
-        .idProduct =            cpu_to_le16(0xdbca),
-        .bcdDevice =            cpu_to_le16(0xffff),
+        .idVendor 		= cpu_to_le16(0xabcd),
+        .idProduct 		= cpu_to_le16(0xdbca),
+        .bcdDevice 		= cpu_to_le16(0xffff),
 
-        .bNumConfigurations =   1,
+        .bNumConfigurations 	=   1,
+};
+
+/*Initially config_descriptor has 0 interfaces so setup request can complete easily*/
+static struct usb_config_descriptor
+config_desc = {
+	.bLength 		= sizeof config_desc,
+	.bDescriptorType 	= USB_DT_CONFIG,
+
+	/* wTotalLength computed later */
+	.bNumInterfaces 	= 0,
+	.bConfigurationValue 	= 66,
+	.bmAttributes 		= USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
+	.bMaxPower 		= CONFIG_USB_GADGET_VBUS_DRAW / 2,
 };
 
 
@@ -162,11 +175,30 @@ static int usbg_setup(struct usb_gadget * gadget, const struct usb_ctrlrequest *
 					ep0_complete(_usbg_dev->ep0, req);			
 				}
 				break;
-			}						
+			case USB_DT_CONFIG:
+				printk(KERN_DEBUG"Get config descriptor\n");
+				value = min(w_length, (u16)sizeof(struct usb_config_descriptor));
+				req->length = value;
+				memcpy(req->buf, &config_desc, value);
+				value = usb_ep_queue(_usbg_dev->ep0, req, GFP_ATOMIC);
+				if (value < 0) {
+					req->status = 0;
+					ep0_complete(_usbg_dev->ep0, req);			
+				}
+				break;	
+			}
+			break;							
 		}
 
-	}	
-
+	}
+	else {
+		printk(KERN_DEBUG"OUT REQ SENT\n");	
+		switch (ctrlreq->bRequest) {
+		case USB_REQ_SET_CONFIGURATION:
+			printk(KERN_DEBUG"set config %d\n", w_value);			
+			break;
+		}
+	}
 	return rc;
 }
 
